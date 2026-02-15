@@ -1,0 +1,25 @@
+backbone:
+  name: "bert-base-uncased"
+  freeze: true
+
+glot:
+  gnn_type: "GAT"
+  hidden_dim: 128
+  num_layers: 2
+  jk_mode: "cat"
+  threshold: 0.6
+
+training:
+  epochs: 2
+  lr: 2e-4
+  weight_decay: 0.0
+  batch_size: 32
+  eval_batch_size: 64
+  seed: 42
+
+task:
+  name: "sst2"
+  type: "classification"
+  num_classes: 2
+  max_length: 128
+  metric: "accuracy"

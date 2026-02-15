@@ -1,0 +1,12 @@
+torch>=2.0.0
+torch-geometric>=2.4.0
+torch-scatter
+torch-sparse
+transformers>=4.36.0
+datasets>=2.16.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+pyyaml
+tqdm
+numpy>=1.24.0
+pytest
