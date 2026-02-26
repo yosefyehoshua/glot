@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/Yosef.Yehoshua/PycharmProjects/glot status:*)",
+      "Bash(git -C /Users/Yosef.Yehoshua/PycharmProjects/glot log --oneline -5)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(/opt/homebrew/bin/pytest tests/test_graph_construction.py -v)",
+      "Bash(conda env list:*)",
+      "Bash(pip3 list:*)",
+      "Bash(python3 -m venv:*)",
+      "Bash(/Users/Yosef.Yehoshua/PycharmProjects/glot/.venv/bin/pip install:*)",
+      "Bash(.venv/bin/pytest:*)",
+      "Bash(git init:*)",
+      "Bash(source:*)",
+      "Bash(python3:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(gh auth:*)",
+      "Bash(brew install:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git -C /Users/Yosef.Yehoshua/PycharmProjects/glot rev-parse HEAD)",
+      "Bash(git -C /Users/Yosef.Yehoshua/PycharmProjects/glot log --oneline -3)",
+      "Bash(git -C /Users/Yosef.Yehoshua/PycharmProjects/glot add notebooks/demo.ipynb)",
+      "Bash(git -C:*)",
+      "Bash(python -c:*)",
+      "Bash(/Users/Yosef.Yehoshua/PycharmProjects/glot/.venv/bin/python:*)"
+    ]
+  }
+}
