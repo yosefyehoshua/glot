@@ -51,6 +51,17 @@ class TestCreatePoolerAndHead:
             logits = head(z)
             assert logits.shape == (2, 3), f"Failed for {ptype}"
 
+    def test_eos_pooler_creation(self):
+        pooler, head = create_pooler_and_head(
+            "eos", input_dim=768, num_classes=2, task_type="classification"
+        )
+        hidden = torch.randn(2, 5, 768)
+        mask = torch.ones(2, 5, dtype=torch.long)
+        z = pooler(hidden, mask)
+        assert z.shape == (2, 768)
+        logits = head(z)
+        assert logits.shape == (2, 2)
+
     def test_unknown_pooler_raises(self):
         with pytest.raises(ValueError):
             create_pooler_and_head(

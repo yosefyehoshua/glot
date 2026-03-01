@@ -1,6 +1,6 @@
 import torch.nn as nn
 from glot.glot_pooler import GLOTPooler
-from glot.baselines import MeanPooler, MaxPooler, CLSPooler, AdaPool
+from glot.baselines import MeanPooler, MaxPooler, CLSPooler, AdaPool, EOSPooler
 
 
 def create_pooler_and_head(
@@ -28,6 +28,9 @@ def create_pooler_and_head(
         pool_dim = input_dim
     elif pooler_type == "cls":
         pooler = CLSPooler(is_decoder=False)
+        pool_dim = input_dim
+    elif pooler_type == "eos":
+        pooler = EOSPooler()
         pool_dim = input_dim
     elif pooler_type == "adapool":
         pooler = AdaPool(input_dim)
