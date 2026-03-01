@@ -80,3 +80,37 @@ class TestAdaPool:
         hidden2[0, 3:] = 999.0
         z2 = pooler(hidden2, mask)
         assert torch.allclose(z, z2)
+
+
+class TestEOSPooler:
+    def test_output_shape(self):
+        from glot.baselines import EOSPooler
+
+        pooler = EOSPooler()
+        hidden = torch.randn(2, 5, 768)
+        mask = torch.ones(2, 5, dtype=torch.long)
+        z = pooler(hidden, mask)
+        assert z.shape == (2, 768)
+
+    def test_returns_last_valid_token(self):
+        from glot.baselines import EOSPooler
+
+        pooler = EOSPooler()
+        hidden = torch.tensor([[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [0.0, 0.0]]])
+        mask = torch.tensor([[1, 1, 1, 0]])
+        z = pooler(hidden, mask)
+        expected = torch.tensor([[5.0, 6.0]])
+        assert torch.allclose(z, expected)
+
+    def test_different_lengths_in_batch(self):
+        from glot.baselines import EOSPooler
+
+        pooler = EOSPooler()
+        hidden = torch.tensor([
+            [[1.0, 2.0], [3.0, 4.0], [0.0, 0.0]],
+            [[5.0, 6.0], [7.0, 8.0], [9.0, 10.0]],
+        ])
+        mask = torch.tensor([[1, 1, 0], [1, 1, 1]])
+        z = pooler(hidden, mask)
+        expected = torch.tensor([[3.0, 4.0], [9.0, 10.0]])
+        assert torch.allclose(z, expected)

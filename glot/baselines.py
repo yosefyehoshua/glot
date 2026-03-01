@@ -37,6 +37,15 @@ class CLSPooler(nn.Module):
         return hidden_states[:, 0]
 
 
+class EOSPooler(nn.Module):
+    """Extract the last non-padding token (EOS position for decoder models)."""
+
+    def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        seq_lengths = attention_mask.sum(dim=1) - 1
+        batch_indices = torch.arange(hidden_states.size(0), device=hidden_states.device)
+        return hidden_states[batch_indices, seq_lengths]
+
+
 class AdaPool(nn.Module):
     """Learned scoring MLP with softmax-weighted average (Brothers, 2025)."""
 
