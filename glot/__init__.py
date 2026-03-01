@@ -5,3 +5,4 @@ from glot.glot_pooler import GLOTPooler
 from glot.baselines import MeanPooler, MaxPooler, CLSPooler, AdaPool, EOSPooler
 from glot.model import create_pooler_and_head
 from glot.utils import compute_metrics, load_config, GLUE_TASKS
+from glot.backbone import BACKBONE_REGISTRY, get_backbone_config, load_backbone
