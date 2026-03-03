@@ -27,6 +27,9 @@ checkpoints/
 results/
 *.pt
 
+# Worktrees
+.worktrees/
+
 # Misc
 .env
 *.log
