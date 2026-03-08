@@ -23,12 +23,14 @@ ALL_BACKBONES = list(BACKBONE_REGISTRY.keys())
 ALL_POOLERS = ["cls", "eos", "mean", "max", "adapool", "glot"]
 ALL_RATIOS = [0.2, 0.5, 0.8, 0.9]
 
-TRAIN_SAMPLES = 10000
-TEST_SAMPLES = 2000
-SEQ_LENGTH = 256
+TRAIN_SAMPLES = 2000
+TEST_SAMPLES = 500
+SEQ_LENGTH = 128
 MAX_TOKEN_LENGTH = 512
-EPOCHS = 2
-LR = 2e-4
+SIGNAL_POSITION = "random"
+RELATIONAL_DISTANCE = 10
+EPOCHS = 3
+LR = 1e-4
 BATCH_SIZE = 32
 SEED = 42
 
@@ -95,11 +97,13 @@ def run_single_experiment(backbone_name, pooler_name, ratio, device, results_dic
     # Generate data
     train_data = generate_diagnostic_dataset(
         num_samples=TRAIN_SAMPLES, seq_length=SEQ_LENGTH,
-        distractor_ratio=ratio, seed=SEED,
+        distractor_ratio=ratio, signal_position=SIGNAL_POSITION,
+        relational_distance=RELATIONAL_DISTANCE, seed=SEED,
     )
     test_data = generate_diagnostic_dataset(
         num_samples=TEST_SAMPLES, seq_length=SEQ_LENGTH,
-        distractor_ratio=ratio, seed=SEED + 1,
+        distractor_ratio=ratio, signal_position=SIGNAL_POSITION,
+        relational_distance=RELATIONAL_DISTANCE, seed=SEED + 1,
     )
 
     train_texts = [t for t, _ in train_data]
@@ -119,7 +123,7 @@ def run_single_experiment(backbone_name, pooler_name, ratio, device, results_dic
 
     # Create pooler + head
     input_dim = bcfg["hidden_dim"]
-    glot_config = {"hidden_dim": 128, "num_gnn_layers": 2, "jk_mode": "cat", "threshold": 0.6}
+    glot_config = {"hidden_dim": 128, "num_gnn_layers": 2, "jk_mode": "cat", "threshold": 0.3}
     pooler, head = create_pooler_and_head(
         pooler_type=pooler_type,
         input_dim=input_dim,

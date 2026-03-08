@@ -44,20 +44,23 @@ class TestBuildTokenGraph:
         batch_high = build_token_graph(hidden, mask, threshold=0.9)
         assert batch_high.edge_index.shape[1] <= batch_low.edge_index.shape[1]
 
-    def test_no_self_loops(self):
-        """Diagonal of adjacency is zeroed, so no self-loops."""
+    def test_self_loops_present(self):
+        """Self-loops are kept (matching original code behavior)."""
         hidden = torch.randn(1, 4, 8)
         mask = torch.ones(1, 4, dtype=torch.long)
         batch = build_token_graph(hidden, mask, threshold=0.0)
         src, dst = batch.edge_index
-        assert (src != dst).all()
+        # Cosine similarity of a token with itself is 1.0 > 0.0, so self-loops exist
+        self_loops = (src == dst).sum().item()
+        assert self_loops == 4  # One self-loop per token
 
     def test_identical_vectors_fully_connected(self):
         """Identical token vectors should all be connected at any threshold < 1."""
         hidden = torch.ones(1, 4, 8)
         mask = torch.ones(1, 4, dtype=torch.long)
         batch = build_token_graph(hidden, mask, threshold=0.5)
-        assert batch.edge_index.shape[1] == 12
+        # 4 nodes, all identical: 4*4=16 edges (including self-loops)
+        assert batch.edge_index.shape[1] == 16
 
     def test_batch_vector_correct(self):
         """The batch vector assigns nodes to correct graphs."""
@@ -68,22 +71,20 @@ class TestBuildTokenGraph:
         assert torch.equal(batch.batch, expected_batch)
 
     def test_edge_attr_present(self):
-        """Graph edges should have cosine similarity as edge_attr."""
+        """Graph edges should have edge_attr."""
         hidden = torch.randn(1, 4, 8)
         mask = torch.ones(1, 4, dtype=torch.long)
         batch = build_token_graph(hidden, mask, threshold=0.0)
         assert batch.edge_attr is not None
         assert batch.edge_attr.shape == (batch.edge_index.shape[1], 1)
 
-    def test_edge_attr_values_are_similarities(self):
-        """edge_attr values should be cosine similarities > threshold."""
+    def test_edge_attr_values_are_binary(self):
+        """edge_attr values should all be 1.0 (binary, matching original)."""
         hidden = torch.randn(1, 4, 16)
         mask = torch.ones(1, 4, dtype=torch.long)
-        threshold = 0.3
-        batch = build_token_graph(hidden, mask, threshold=threshold)
+        batch = build_token_graph(hidden, mask, threshold=0.3)
         if batch.edge_attr.numel() > 0:
-            assert (batch.edge_attr > threshold).all()
-            assert (batch.edge_attr <= 1.0).all()
+            assert (batch.edge_attr == 1.0).all()
 
     def test_edge_attr_matches_edge_count(self):
         """Number of edge_attr values equals number of edges."""
@@ -91,3 +92,9 @@ class TestBuildTokenGraph:
         mask = torch.ones(2, 5, dtype=torch.long)
         batch = build_token_graph(hidden, mask, threshold=0.5)
         assert batch.edge_attr.shape[0] == batch.edge_index.shape[1]
+
+    def test_default_threshold_is_03(self):
+        """Default threshold matches original code (0.3)."""
+        import inspect
+        sig = inspect.signature(build_token_graph)
+        assert sig.parameters["threshold"].default == 0.3

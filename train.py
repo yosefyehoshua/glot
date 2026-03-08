@@ -2,6 +2,7 @@
 import argparse
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -21,7 +22,13 @@ def train_epoch(pooler, head, loader, optimizer, loss_fn, task_type, device="cpu
     for batch in loader:
         optimizer.zero_grad()
 
-        if task_type == "pair_classification":
+        if task_type == "regression":
+            hs_a, mask_a, hs_b, mask_b, labels = [b.to(device) for b in batch]
+            z_a = head(pooler(hs_a, mask_a))
+            z_b = head(pooler(hs_b, mask_b))
+            logits = F.cosine_similarity(z_a, z_b)
+            labels = labels / 5.0  # Scale 0-5 to 0-1 (matching original)
+        elif task_type == "pair_classification":
             hs_a, mask_a, hs_b, mask_b, labels = [b.to(device) for b in batch]
             z_a = pooler(hs_a, mask_a)
             z_b = pooler(hs_b, mask_b)
@@ -50,19 +57,29 @@ def evaluate_epoch(pooler, head, loader, task_type, device="cpu"):
     all_labels = []
 
     for batch in loader:
-        if task_type == "pair_classification":
+        if task_type == "regression":
+            hs_a, mask_a, hs_b, mask_b, labels = [b.to(device) for b in batch]
+            z_a = head(pooler(hs_a, mask_a))
+            z_b = head(pooler(hs_b, mask_b))
+            preds = F.cosine_similarity(z_a, z_b)
+            # Scale back to 0-5 range for metric computation
+            all_preds.extend((preds * 5.0).cpu().tolist())
+            all_labels.extend(labels.cpu().tolist())
+        elif task_type == "pair_classification":
             hs_a, mask_a, hs_b, mask_b, labels = [b.to(device) for b in batch]
             z_a = pooler(hs_a, mask_a)
             z_b = pooler(hs_b, mask_b)
             logits = head(torch.cat([z_a, z_b], dim=-1))
+            preds = logits.argmax(dim=-1)
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(labels.cpu().tolist())
         else:
             hs, mask, labels = [b.to(device) for b in batch]
             z = pooler(hs, mask)
             logits = head(z)
-
-        preds = logits.argmax(dim=-1)
-        all_preds.extend(preds.cpu().tolist())
-        all_labels.extend(labels.cpu().tolist())
+            preds = logits.argmax(dim=-1)
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(labels.cpu().tolist())
 
     return all_preds, all_labels
 
@@ -84,7 +101,15 @@ def main():
     backbone_short = backbone_name.replace("/", "_")
 
     task_cfg = GLUE_TASKS[task_name]
-    task_type = "pair_classification" if task_cfg["type"] == "pair" else "classification"
+
+    # Determine task type: regression for STS-B (num_classes=1)
+    if task_cfg.get("num_classes") == 1:
+        task_type = "regression"
+    elif task_cfg["type"] == "pair":
+        task_type = "pair_classification"
+    else:
+        task_type = "classification"
+
     hidden_dim_map = {"bert-base-uncased": 768, "roberta-base": 768}
     input_dim = hidden_dim_map.get(backbone_name, 768)
 
@@ -119,7 +144,12 @@ def main():
 
     params = list(pooler.parameters()) + list(head.parameters())
     optimizer = Adam(params, lr=cfg["training"]["lr"], weight_decay=cfg["training"]["weight_decay"])
-    loss_fn = nn.CrossEntropyLoss()
+
+    # Use MSE loss for regression, CrossEntropy for classification
+    if task_type == "regression":
+        loss_fn = nn.MSELoss()
+    else:
+        loss_fn = nn.CrossEntropyLoss()
 
     # Seed
     torch.manual_seed(cfg["training"]["seed"])

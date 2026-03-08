@@ -49,13 +49,12 @@ class EOSPooler(nn.Module):
 class AdaPool(nn.Module):
     """Learned scoring MLP with softmax-weighted average (Brothers, 2025)."""
 
-    def __init__(self, input_dim: int, hidden_dim: int | None = None):
+    def __init__(self, input_dim: int, hidden_dim: int = 128):
         super().__init__()
-        hidden_dim = hidden_dim or input_dim
         self.scorer = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.Tanh(),
-            nn.Linear(hidden_dim, 1, bias=False),
+            nn.Linear(hidden_dim, 1),
         )
 
     def forward(self, hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:

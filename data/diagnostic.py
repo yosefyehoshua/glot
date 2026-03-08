@@ -1,105 +1,112 @@
-"""Synthetic signal dilution dataset for diagnostic stress test (Algorithm 2)."""
+"""Synthetic signal dilution dataset for diagnostic stress test (Algorithm 2).
+
+Faithful port of generate_dataset() from the original GLOT code:
+https://github.com/ipsitmantri/GLOT/blob/main/diagnostic_stress_test.py
+
+Task: "Are {target_noun} present?" — binary classification.
+Positive: context phrase + target noun (label 1).
+Negative: context phrase + modifier + relational_distance noise words + target noun (label 0).
+The relational distance forces long-range dependency understanding.
+"""
 import random
+from typing import List, Tuple
 
-SIGNAL_TEMPLATES = [
-    # Negation patterns (label 0)
-    ("the file has {X} but not {Y}", 0),
-    ("the system includes {X} but lacks {Y}", 0),
-    ("the report mentions {X} without {Y}", 0),
-    ("the package contains {X} but excludes {Y}", 0),
-    ("the plan covers {X} but not {Y}", 0),
-    # Affirmation patterns (label 1)
-    ("the file has {X} and also {Y}", 1),
-    ("the system includes {X} and {Y}", 1),
-    ("the report mentions {X} with {Y}", 1),
-    ("the package contains {X} and includes {Y}", 1),
-    ("the plan covers {X} and {Y}", 1),
-]
+# Exact constants from the original GLOT code
+NOISE_WORDS = (
+    "the of and to a in for is on that by this with i you it not or be are "
+    "from at as your all have new more an was we will home can us about if "
+    "page my has search free but our one other do no information time they "
+    "site he up may what which their news out use any there see only so his "
+    "when contact here business who web also now help get pm view online "
+    "first am been would how were me services some these click its like "
+    "service x than find date top yet"
+).split()
 
-CONTENT_WORDS = [
-    "keys", "data", "images", "tables", "links",
-    "charts", "graphs", "notes", "files", "records",
-    "entries", "values", "codes", "tags", "labels",
-]
+TARGET_NOUNS = ["keys", "reports", "files", "tickets", "documents", "alerts"]
 
-# Distractor vocabulary — common English words (derived from Wikipedia per paper).
-# Using a built-in list avoids the NLTK dependency for reproducibility.
-_DISTRACTOR_VOCAB = [
-    "the", "of", "and", "to", "in", "a", "is", "that", "for", "it",
-    "was", "on", "are", "as", "with", "his", "they", "be", "at", "one",
-    "have", "this", "from", "or", "had", "by", "not", "but", "what", "all",
-    "were", "when", "we", "there", "can", "an", "your", "which", "their", "said",
-    "each", "she", "do", "how", "if", "will", "up", "other", "about", "out",
-    "many", "then", "them", "these", "so", "some", "her", "would", "make", "like",
-    "him", "into", "time", "has", "look", "two", "more", "go", "see", "way",
-    "could", "no", "than", "first", "been", "call", "who", "its", "now", "find",
-    "long", "down", "day", "did", "get", "come", "made", "after", "back", "only",
-    "me", "our", "under", "know", "last", "also", "use", "just", "over", "such",
-    "great", "think", "say", "help", "low", "line", "before", "turn", "move", "right",
-    "too", "old", "still", "same", "tell", "need", "house", "world", "head", "own",
-    "every", "city", "tree", "cross", "farm", "hard", "start", "might", "story", "far",
-    "sea", "late", "run", "left", "here", "school", "close", "night", "real", "life",
-    "few", "north", "open", "seem", "next", "walk", "ease", "both", "mark", "mile",
-    "river", "car", "feet", "care", "second", "group", "carry", "took", "rain", "eat",
-    "room", "friend", "began", "idea", "fish", "mountain", "stop", "once", "base", "hear",
-    "horse", "cut", "sure", "watch", "color", "face", "wood", "main", "enough", "plain",
-    "girl", "usual", "young", "ready", "above", "ever", "red", "list", "though", "feel",
-    "side", "keep", "land", "song", "door", "wind", "upon", "shall", "rock", "black",
-    "short", "space", "while", "human", "during", "glass", "plant", "round", "change", "sun",
-    "fire", "stand", "point", "page", "order", "place", "play", "end", "area", "water",
-    "hand", "high", "small", "large", "given", "much", "may", "set", "part", "new",
-    "number", "people", "state", "very", "take", "year", "most", "well", "those", "show",
-    "form", "work", "must", "home", "even", "being", "where", "field", "good", "three",
-    "kind", "name", "used", "men", "light", "road", "food", "book", "war", "between",
-    "country", "never", "system", "best", "body", "paper", "power", "air", "done", "until",
-    "white", "children", "put", "against", "should", "often", "important", "man", "big", "near",
-    "why", "went", "family", "hands", "given", "along", "half", "nothing", "away", "surface",
-    "political", "music", "possible", "woman", "feet", "fact", "class", "taken", "always", "words",
-    "early", "eye", "true", "center", "less", "table", "rest", "already", "church", "five",
-]
+MODIFIERS = ["not", "never", "without", "excluding"]
+
+CONTEXTS = ["the delivery contains", "the folder includes", "in the box are"]
 
 
 def generate_diagnostic_dataset(
-    num_samples: int = 10000,
-    seq_length: int = 256,
+    num_samples: int = 2000,
+    seq_length: int = 128,
     distractor_ratio: float = 0.5,
+    signal_position: str = "random",
+    relational_distance: int = 10,
     seed: int = 42,
-):
-    """Generate synthetic signal dilution dataset.
+) -> List[Tuple[str, int]]:
+    """Generate synthetic signal dilution dataset (Algorithm 2).
+
+    Constructs a "Relational Needle in a Haystack" task where the model must
+    determine whether a target noun is present (label 1) or negated (label 0).
+    For negated samples, ``relational_distance`` noise words are inserted
+    between the modifier ("not", "never", ...) and the target noun, forcing
+    long-range dependency understanding.
 
     Args:
         num_samples: Number of (text, label) pairs to generate.
         seq_length: Total word count per sequence.
-        distractor_ratio: Fraction of words that are distractors (0.0-1.0).
+        distractor_ratio: Fraction of sequence that is noise words (0.0–1.0).
+        signal_position: Where to inject the signal phrase in the noise.
+            One of "start", "middle", "end", "random".
+        relational_distance: Number of noise words inserted between the
+            modifier and the target noun in negative samples.
         seed: Random seed for reproducibility.
 
     Returns:
-        List of (text, label) tuples. label is 0 (negation) or 1 (affirmation).
+        List of (text, label) tuples. label is 0 (negated) or 1 (present).
     """
     rng = random.Random(seed)
 
-    num_distractor_tokens = int(seq_length * distractor_ratio)
-    num_signal_tokens = seq_length - num_distractor_tokens
+    dataset: List[Tuple[str, int]] = []
 
-    dataset = []
     for _ in range(num_samples):
-        template, label = rng.choice(SIGNAL_TEMPLATES)
-        x, y = rng.sample(CONTENT_WORDS, 2)
-        signal_text = template.format(X=x, Y=y)
-        signal_tokens = signal_text.split()
+        # 1. Choose signal and label
+        is_positive = rng.choice([True, False])
+        target_noun = rng.choice(TARGET_NOUNS)
+        context = rng.choice(CONTEXTS)
 
-        # Adjust signal to fit allocated length
-        if len(signal_tokens) > num_signal_tokens:
-            signal_tokens = signal_tokens[:num_signal_tokens]
-        elif len(signal_tokens) < num_signal_tokens:
-            padding = rng.choices(_DISTRACTOR_VOCAB, k=num_signal_tokens - len(signal_tokens))
-            signal_tokens = signal_tokens + padding
+        # 2. Construct the signal phrase (the "needle")
+        if is_positive:
+            signal_phrase_words = context.split() + [target_noun]
+            label = 1
+        else:
+            modifier = rng.choice(MODIFIERS)
+            distractor_words_between = rng.choices(NOISE_WORDS, k=relational_distance)
+            signal_phrase_words = (
+                context.split() + [modifier] + distractor_words_between + [target_noun]
+            )
+            label = 0
 
-        # Generate distractor tokens and inject signal at random position
-        distractor_tokens = rng.choices(_DISTRACTOR_VOCAB, k=num_distractor_tokens)
-        inject_pos = rng.randint(0, num_distractor_tokens)
-        sequence = distractor_tokens[:inject_pos] + signal_tokens + distractor_tokens[inject_pos:]
+        # 3. Construct the noise (the "haystack")
+        num_signal_words = len(signal_phrase_words)
+        num_noise_words = int(seq_length * distractor_ratio)
+        num_total_words = num_noise_words + num_signal_words
+        if num_total_words > seq_length:
+            num_noise_words -= num_total_words - seq_length
 
-        dataset.append((" ".join(sequence), label))
+        noise = rng.choices(NOISE_WORDS, k=num_noise_words)
+
+        # 4. Inject needle into haystack
+        if signal_position == "start":
+            signal_start_idx = 0
+        elif signal_position == "middle":
+            signal_start_idx = len(noise) // 2
+        elif signal_position == "end":
+            signal_start_idx = len(noise)
+        elif signal_position == "random":
+            signal_start_idx = rng.randint(0, len(noise))
+        else:
+            raise ValueError(
+                f"Invalid signal_position '{signal_position}', "
+                "expected one of: start, middle, end, random"
+            )
+
+        final_words = noise[:signal_start_idx] + signal_phrase_words + noise[signal_start_idx:]
+        final_words = final_words[:seq_length]  # Ensure exact length
+
+        dataset.append((" ".join(final_words), label))
 
     return dataset

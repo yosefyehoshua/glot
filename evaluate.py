@@ -21,7 +21,12 @@ def main():
 
     cfg = load_config(args.config)
     task_cfg = GLUE_TASKS[args.task]
-    task_type = "pair_classification" if task_cfg["type"] == "pair" else "classification"
+    if task_cfg.get("num_classes") == 1:
+        task_type = "regression"
+    elif task_cfg["type"] == "pair":
+        task_type = "pair_classification"
+    else:
+        task_type = "classification"
     backbone_short = args.backbone.replace("/", "_")
 
     hidden_dim_map = {"bert-base-uncased": 768, "roberta-base": 768}
@@ -32,6 +37,7 @@ def main():
         "num_gnn_layers": cfg["glot"]["num_layers"],
         "jk_mode": cfg["glot"]["jk_mode"],
         "threshold": cfg["glot"]["threshold"],
+        "gnn_type": cfg["glot"].get("gnn_type", "GAT"),
     }
     pooler, head = create_pooler_and_head(
         pooler_type=args.pooler,

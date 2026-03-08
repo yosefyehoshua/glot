@@ -1,8 +1,24 @@
+import torch
 import torch.nn as nn
 from glot.graph_construction import build_token_graph
 from glot.token_gnn import TokenGNN
 from glot.readout import AttentionReadout
 from glot.baselines import MeanPooler, MaxPooler, CLSPooler, AdaPool, EOSPooler
+
+
+class ProjectionHead(nn.Module):
+    """Linear projection for regression tasks (STS-B).
+
+    Matches the original GLOT ProjectionHead with normalize=False:
+    a simple linear layer projecting to the same dimension.
+    """
+
+    def __init__(self, in_dim: int):
+        super().__init__()
+        self.proj = nn.Linear(in_dim, in_dim)
+
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
+        return self.proj(z)
 
 
 class GLOTPooler(nn.Module):
@@ -14,7 +30,7 @@ class GLOTPooler(nn.Module):
         hidden_dim: int = 128,
         num_gnn_layers: int = 2,
         jk_mode: str = "cat",
-        threshold: float = 0.6,
+        threshold: float = 0.3,
         gnn_type: str = "GAT",
     ):
         super().__init__()
@@ -68,7 +84,9 @@ def create_pooler_and_head(
     else:
         raise ValueError(f"Unknown pooler type: {pooler_type}")
 
-    if task_type == "pair_classification":
+    if task_type == "regression":
+        head = ProjectionHead(pool_dim)
+    elif task_type == "pair_classification":
         head = nn.Linear(pool_dim * 2, num_classes)
     else:
         head = nn.Linear(pool_dim, num_classes)

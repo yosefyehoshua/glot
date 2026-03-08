@@ -70,6 +70,12 @@ class TestAdaPool:
         assert len(params) > 0
         assert all(p.requires_grad for p in params)
 
+    def test_default_hidden_dim_is_128(self):
+        """AdaPool default hidden_dim should be 128 (matching original code)."""
+        pooler = AdaPool(input_dim=768)
+        first_linear = pooler.scorer[0]
+        assert first_linear.out_features == 128
+
     def test_ignores_padding(self):
         pooler = AdaPool(input_dim=4)
         hidden = torch.randn(1, 5, 4)

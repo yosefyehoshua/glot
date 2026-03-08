@@ -1,6 +1,6 @@
 import torch
 import pytest
-from glot.model import create_pooler_and_head, GLOTPooler
+from glot.model import create_pooler_and_head, GLOTPooler, ProjectionHead
 
 
 class TestCreatePoolerAndHead:
@@ -61,6 +61,17 @@ class TestCreatePoolerAndHead:
         assert z.shape == (2, 768)
         logits = head(z)
         assert logits.shape == (2, 2)
+
+    def test_regression_returns_projection_head(self):
+        """STS-B regression should return ProjectionHead, not Linear."""
+        pooler, head = create_pooler_and_head(
+            pooler_type="mean", input_dim=768, num_classes=1,
+            task_type="regression",
+        )
+        assert isinstance(head, ProjectionHead)
+        z = pooler(torch.randn(2, 5, 768), torch.ones(2, 5, dtype=torch.long))
+        projected = head(z)
+        assert projected.shape == (2, 768)
 
     def test_unknown_pooler_raises(self):
         with pytest.raises(ValueError):

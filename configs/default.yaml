@@ -7,7 +7,7 @@ glot:
   hidden_dim: 128
   num_layers: 2
   jk_mode: "cat"
-  threshold: 0.6
+  threshold: 0.3
 
 training:
   epochs: 2

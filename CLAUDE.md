@@ -25,7 +25,7 @@ data/                    # Data loading
   glue_loader.py         # GLUE task loading & tokenization
   cache.py               # CachedDataset & save/load utilities
   diagnostic.py          # Synthetic signal dilution dataset generator
-tests/                   # 12 test files, 93 test cases
+tests/                   # 12 test files, 101 test cases
 configs/default.yaml     # Hyperparameter configuration
 train.py                 # Training loop on cached hidden states
 cache_hidden_states.py   # Backbone precomputation script
@@ -79,7 +79,7 @@ python run_diagnostic.py --backbone bert-base-uncased --pooler glot --ratio 0.9
 
 ## Architecture (3-Stage Pipeline)
 
-1. **Graph Construction**: Cosine similarity → threshold (τ=0.6) → edge-weighted adjacency (edge_attr = cosine sim) → COO edge lists → PyG Data
+1. **Graph Construction**: Cosine similarity → threshold (τ=0.3) → binary adjacency (edge_attr = 1.0, self-loops kept) → COO edge lists → PyG Data
 2. **TokenGNN**: No input projection — first GNN layer takes raw d-dim input → K GNN layers (GAT/GCN/GIN/GINE) + ReLU → Jumping Knowledge (cat) → output dim = d + K×hidden_dim (e.g., 768 + 2×128 = 1024 for BERT)
 3. **Attention Readout**: MLP scorer (Linear(d_in, max(128, d_in//2))→Tanh→Linear(1)) → per-graph softmax weights → weighted sum → sentence embedding (B, output_dim)
 
@@ -88,10 +88,10 @@ Edge cases: Empty graphs (zero edges after thresholding) degrade gracefully — 
 ## Key Module APIs
 
 ```
-build_token_graph(hidden_states: (B,L,d), attention_mask: (B,L), threshold=0.6) -> PyG Batch (with edge_attr)
+build_token_graph(hidden_states: (B,L,d), attention_mask: (B,L), threshold=0.3) -> PyG Batch (with edge_attr)
 TokenGNN(input_dim, hidden_dim=128, num_layers=2, jk_mode='cat', gnn_type='GAT').forward(x, edge_index, edge_attr=None) -> (N, output_dim)
 AttentionReadout(input_dim).forward(x, batch) -> (B, D)
-GLOTPooler(input_dim, hidden_dim=128, num_gnn_layers=2, jk_mode='cat', threshold=0.6, gnn_type='GAT').forward(hs, mask) -> (B, output_dim)
+GLOTPooler(input_dim, hidden_dim=128, num_gnn_layers=2, jk_mode='cat', threshold=0.3, gnn_type='GAT').forward(hs, mask) -> (B, output_dim)
 create_pooler_and_head(pooler_type, input_dim, num_classes, task_type, glot_config=None) -> (pooler, head)
 train_epoch(pooler, head, loader, optimizer, loss_fn, task_type, device) -> avg_loss
 evaluate_epoch(pooler, head, loader, task_type, device) -> (preds, labels)
@@ -117,7 +117,7 @@ All defined in `GLUE_TASKS` dict in `glot/utils.py` with `sentence_keys` for tok
 
 ## Diagnostic Stress Test
 
-Signal dilution experiment testing pooler robustness: synthetic sequences with signal phrases buried in distractor words. 120 combinations: 6 backbones × 5 poolers × 4 distractor ratios (0.2, 0.5, 0.8, 0.9). Results saved to `results/diagnostic_results.json`.
+"Relational Needle in a Haystack" experiment (Algorithm 2 from original code). Binary classification: "Are {target_noun} present?" with context phrases, optional modifiers (not/never/without/excluding), and relational_distance=10 noise words between modifier and target. Defaults: 2000 train, 500 eval, seq_length=128, 3 epochs, lr=1e-4. 120 combinations: 6 backbones × 5 poolers × 4 distractor ratios (0.2, 0.5, 0.8, 0.9). Results saved to `results/diagnostic_results.json`.
 
 ## Design Documents
 

@@ -49,6 +49,26 @@ class TestTrainEpoch:
         assert isinstance(loss, float)
 
 
+    def test_regression_task_trains(self):
+        """Training on regression (STS-B) cached data works with MSE loss."""
+        pooler, head = create_pooler_and_head("mean", input_dim=16, num_classes=1,
+                                               task_type="regression")
+        hs_a = torch.randn(20, 5, 16)
+        masks_a = torch.ones(20, 5, dtype=torch.long)
+        hs_b = torch.randn(20, 5, 16)
+        masks_b = torch.ones(20, 5, dtype=torch.long)
+        labels = torch.rand(20) * 5.0  # STS-B labels are 0-5 floats
+        ds = CachedDataset(hs_a, masks_a, labels, hs_b, masks_b)
+        loader = DataLoader(ds, batch_size=10)
+
+        params = list(pooler.parameters()) + list(head.parameters())
+        optimizer = torch.optim.Adam(params, lr=1e-3)
+        loss_fn = torch.nn.MSELoss()
+
+        loss = train_epoch(pooler, head, loader, optimizer, loss_fn, "regression")
+        assert isinstance(loss, float)
+
+
 class TestEvaluateEpoch:
     def test_returns_predictions_and_labels(self):
         pooler, head = create_pooler_and_head("mean", input_dim=16, num_classes=2,
@@ -62,3 +82,20 @@ class TestEvaluateEpoch:
         preds, labs = evaluate_epoch(pooler, head, loader, "classification")
         assert len(preds) == 10
         assert len(labs) == 10
+
+    def test_regression_returns_continuous_predictions(self):
+        """Regression evaluate should return continuous cosine sim values, not argmax."""
+        pooler, head = create_pooler_and_head("mean", input_dim=16, num_classes=1,
+                                               task_type="regression")
+        hs_a = torch.randn(10, 5, 16)
+        masks_a = torch.ones(10, 5, dtype=torch.long)
+        hs_b = torch.randn(10, 5, 16)
+        masks_b = torch.ones(10, 5, dtype=torch.long)
+        labels = torch.rand(10) * 5.0
+        ds = CachedDataset(hs_a, masks_a, labels, hs_b, masks_b)
+        loader = DataLoader(ds, batch_size=5)
+
+        preds, labs = evaluate_epoch(pooler, head, loader, "regression")
+        assert len(preds) == 10
+        # Predictions should be scaled back to 0-5 range (continuous, not integers)
+        assert any(isinstance(p, float) and p != int(p) for p in preds)

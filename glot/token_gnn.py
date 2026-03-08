@@ -67,7 +67,11 @@ class TokenGNN(nn.Module):
         layer_outputs = [x]  # Include raw input (dim d) in JK
         h = x
         for conv in self.convs:
-            if self.gnn_type in ("GAT", "GINE") and edge_attr is not None:
+            if self.gnn_type == "GAT" and edge_attr is not None:
+                h = conv(h, edge_index, edge_attr=edge_attr)
+            elif self.gnn_type == "GCN" and edge_attr is not None:
+                h = conv(h, edge_index, edge_weight=edge_attr.squeeze(-1))
+            elif self.gnn_type == "GINE" and edge_attr is not None:
                 h = conv(h, edge_index, edge_attr=edge_attr)
             else:
                 h = conv(h, edge_index)

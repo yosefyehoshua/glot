@@ -20,7 +20,7 @@ class AttentionReadout(nn.Module):
         self.attention = nn.Sequential(
             nn.Linear(input_dim, scorer_hidden),
             nn.Tanh(),
-            nn.Linear(scorer_hidden, 1, bias=False),
+            nn.Linear(scorer_hidden, 1),
         )
 
     def forward(self, x: torch.Tensor, batch: torch.Tensor) -> torch.Tensor:
