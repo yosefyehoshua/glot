@@ -52,3 +52,16 @@ class TestAttentionReadout:
         batch = torch.zeros(4, dtype=torch.long)
         z = readout(x, batch)
         assert z.shape == (1, 32)
+
+    def test_scorer_hidden_scales_with_dim(self):
+        """Scorer hidden dim should be max(128, input_dim // 2)."""
+        readout = AttentionReadout(input_dim=1024)
+        # hidden should be max(128, 1024//2) = 512
+        first_linear = readout.attention[0]
+        assert first_linear.out_features == 512
+
+    def test_scorer_hidden_minimum_128(self):
+        """Scorer hidden dim should be at least 128."""
+        readout = AttentionReadout(input_dim=64)
+        first_linear = readout.attention[0]
+        assert first_linear.out_features == 128
