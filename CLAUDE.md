@@ -33,6 +33,8 @@ evaluate.py              # Evaluation on cached validation data
 run_diagnostic.py        # Diagnostic stress test runner
 scripts/plot_diagnostic.py  # Visualization script
 notebooks/demo.ipynb     # Colab demo notebook
+notebooks/reproduce_org_glot.ipynb  # Original code reproduction results
+notebooks/validate_vs_original.ipynb  # Structured vs original comparison
 docs/plans/              # Historical design & implementation plans
 ```
 
