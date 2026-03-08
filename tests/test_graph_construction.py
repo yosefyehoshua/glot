@@ -66,3 +66,28 @@ class TestBuildTokenGraph:
         batch = build_token_graph(hidden, mask, threshold=0.0)
         expected_batch = torch.tensor([0, 0, 0, 1, 1])
         assert torch.equal(batch.batch, expected_batch)
+
+    def test_edge_attr_present(self):
+        """Graph edges should have cosine similarity as edge_attr."""
+        hidden = torch.randn(1, 4, 8)
+        mask = torch.ones(1, 4, dtype=torch.long)
+        batch = build_token_graph(hidden, mask, threshold=0.0)
+        assert batch.edge_attr is not None
+        assert batch.edge_attr.shape == (batch.edge_index.shape[1], 1)
+
+    def test_edge_attr_values_are_similarities(self):
+        """edge_attr values should be cosine similarities > threshold."""
+        hidden = torch.randn(1, 4, 16)
+        mask = torch.ones(1, 4, dtype=torch.long)
+        threshold = 0.3
+        batch = build_token_graph(hidden, mask, threshold=threshold)
+        if batch.edge_attr.numel() > 0:
+            assert (batch.edge_attr > threshold).all()
+            assert (batch.edge_attr <= 1.0).all()
+
+    def test_edge_attr_matches_edge_count(self):
+        """Number of edge_attr values equals number of edges."""
+        hidden = torch.randn(2, 5, 8)
+        mask = torch.ones(2, 5, dtype=torch.long)
+        batch = build_token_graph(hidden, mask, threshold=0.5)
+        assert batch.edge_attr.shape[0] == batch.edge_index.shape[1]

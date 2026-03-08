@@ -1,4 +1,3 @@
-# glot/graph_construction.py
 import torch
 from torch_geometric.data import Data, Batch
 
@@ -8,7 +7,7 @@ def build_token_graph(
     attention_mask: torch.Tensor,
     threshold: float = 0.6,
 ) -> Batch:
-    """Construct token-similarity graphs from hidden states.
+    """Construct edge-weighted token-similarity graphs from hidden states.
 
     Args:
         hidden_states: (B, L, d) token hidden states from frozen LLM.
@@ -16,7 +15,7 @@ def build_token_graph(
         threshold: cosine similarity threshold for edge creation.
 
     Returns:
-        PyG Batch containing B graphs, one per sentence.
+        PyG Batch containing B graphs with edge_attr (cosine similarity).
     """
     graphs = []
     for i in range(hidden_states.size(0)):
@@ -34,6 +33,13 @@ def build_token_graph(
         # COO edge list
         edge_index = adj.nonzero(as_tuple=False).T.contiguous()  # (2, |E|)
 
-        graphs.append(Data(x=h, edge_index=edge_index))
+        # Edge weights = cosine similarity for surviving edges
+        if edge_index.shape[1] > 0:
+            src, dst = edge_index
+            edge_attr = sim[src, dst].unsqueeze(-1)  # (|E|, 1)
+        else:
+            edge_attr = torch.zeros(0, 1, device=h.device)
+
+        graphs.append(Data(x=h, edge_index=edge_index, edge_attr=edge_attr))
 
     return Batch.from_data_list(graphs)
