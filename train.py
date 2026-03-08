@@ -105,6 +105,7 @@ def main():
         "num_gnn_layers": cfg["glot"]["num_layers"],
         "jk_mode": cfg["glot"]["jk_mode"],
         "threshold": cfg["glot"]["threshold"],
+        "gnn_type": cfg["glot"].get("gnn_type", "GAT"),
     }
     pooler, head = create_pooler_and_head(
         pooler_type=pooler_type,
